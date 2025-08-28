@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Strength Checker</title>
+    
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom styles for a clean, modern look */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Style for the progress bar transition */
+        #strength-progress {
+            transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        }
+        /* Custom focus ring color */
+        .focus-ring-violet {
+            --tw-ring-opacity: 1;
+            --tw-ring-color: rgb(139 92 246 / var(--tw-ring-opacity));
+        }
+        .focus\:ring-violet-500:focus {
+             box-shadow: 0 0 0 2px var(--tw-ring-color);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-6">
+        <!-- Header Section -->
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-white">Password Strength Checker</h1>
+            <p class="text-gray-400 mt-2">Enter a password to see how secure it is.</p>
+        </div>
+
+        <!-- Password Input Field -->
+        <div class="relative">
+            <input 
+                id="password-input" 
+                type="password" 
+                placeholder="Enter your password"
+                class="w-full bg-gray-700 border-2 border-gray-600 text-white rounded-lg px-4 py-3 pr-12 text-base focus:outline-none focus:border-violet-500 focus-ring-violet transition-colors duration-300"
+            >
+            <button id="toggle-visibility" class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-400 hover:text-violet-400 transition-colors">
+                <!-- FIX: Changed from span to i tag with data-lucide attribute -->
+                <i id="eye-icon" data-lucide="eye" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Strength Meter -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-300">Strength</span>
+                <span id="strength-text" class="text-sm font-bold"></span>
+            </div>
+            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div id="strength-progress" class="h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Validation Criteria List -->
+        <ul id="criteria-list" class="space-y-2 pt-2 text-sm">
+            <li id="length" class="flex items-center text-gray-400 transition-colors">
+                <!-- FIX: Changed from span to i tag with data-lucide attribute -->
+                <i data-lucide="circle" class="w-5 h-5 mr-3 text-gray-500"></i>
+                At least 8 characters long
+            </li>
+            <li id="lowercase" class="flex items-center text-gray-400 transition-colors">
+                <i data-lucide="circle" class="w-5 h-5 mr-3 text-gray-500"></i>
+                Contains a lowercase letter (a-z)
+            </li>
+            <li id="uppercase" class="flex items-center text-gray-400 transition-colors">
+                <i data-lucide="circle" class="w-5 h-5 mr-3 text-gray-500"></i>
+                Contains an uppercase letter (A-Z)
+            </li>
+            <li id="number" class="flex items-center text-gray-400 transition-colors">
+                <i data-lucide="circle" class="w-5 h-5 mr-3 text-gray-500"></i>
+                Contains a number (0-9)
+            </li>
+            <li id="symbol" class="flex items-center text-gray-400 transition-colors">
+                <i data-lucide="circle" class="w-5 h-5 mr-3 text-gray-500"></i>
+                Contains a special symbol (!@#$%)
+            </li>
+        </ul>
+
+        <!-- Submit Button -->
+        <button id="submit-button" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-violet-500">
+            Check Password
+        </button>
+
+        <!-- Feedback Message Area -->
+        <div id="feedback-message" class="text-center text-sm font-medium h-5"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const passwordInput = document.getElementById('password-input');
+            const strengthProgress = document.getElementById('strength-progress');
+            const strengthText = document.getElementById('strength-text');
+            const criteriaList = document.getElementById('criteria-list').querySelectorAll('li');
+            const toggleVisibilityBtn = document.getElementById('toggle-visibility');
+            const eyeIcon = document.getElementById('eye-icon');
+            const submitButton = document.getElementById('submit-button');
+            const feedbackMessage = document.getElementById('feedback-message');
+
+            // --- Password Validation Criteria ---
+            const validationCriteria = [
+                { id: 'length', regex: /.{8,}/ },
+                { id: 'lowercase', regex: /[a-z]/ },
+                { id: 'uppercase', regex: /[A-Z]/ },
+                { id: 'number', regex: /[0-9]/ },
+                { id: 'symbol', regex: /[^A-Za-z0-9]/ }
+            ];
+
+            // --- Strength Levels Configuration ---
+            const strengthLevels = {
+                0: { text: "", color: "bg-gray-700", width: "0%" },
+                1: { text: "Very Weak", color: "bg-red-600", width: "20%" },
+                2: { text: "Weak", color: "bg-orange-500", width: "40%" },
+                3: { text: "Medium", color: "bg-yellow-500", width: "60%" },
+                4: { text: "Strong", color: "bg-blue-500", width: "80%" },
+                5: { text: "Very Strong", color: "bg-green-500", width: "100%" }
+            };
+
+            // --- Event Listener for Submit Button ---
+            submitButton.addEventListener('click', () => {
+                const password = passwordInput.value;
+                let score = 0;
+
+                // Check password against each criterion
+                validationCriteria.forEach(criterion => {
+                    const li = document.getElementById(criterion.id);
+                    const icon = li.querySelector('i');
+                    
+                    if (criterion.regex.test(password)) {
+                        score++;
+                        li.classList.remove('text-gray-400');
+                        li.classList.add('text-green-400');
+                        icon.setAttribute('data-lucide', 'check-circle-2');
+                        icon.classList.remove('text-gray-500');
+                        icon.classList.add('text-green-500');
+                    } else {
+                        li.classList.add('text-gray-400');
+                        li.classList.remove('text-green-400');
+                        icon.setAttribute('data-lucide', 'circle');
+                        icon.classList.add('text-gray-500');
+                        icon.classList.remove('text-green-500');
+                    }
+                });
+                
+                // FIX: Re-render icons after changing attributes
+                lucide.createIcons();
+
+                updateStrengthUI(score);
+
+                // Update feedback message
+                if (score === validationCriteria.length) {
+                    feedbackMessage.textContent = '✅ Secure password!';
+                    feedbackMessage.className = 'text-center text-sm font-medium h-5 text-green-400';
+                } else if (password.length === 0) {
+                    feedbackMessage.textContent = 'Please enter a password.';
+                    feedbackMessage.className = 'text-center text-sm font-medium h-5 text-yellow-400';
+                } else {
+                    feedbackMessage.textContent = '❌ Please meet all criteria.';
+                    feedbackMessage.className = 'text-center text-sm font-medium h-5 text-red-400';
+                }
+            });
+
+            // --- Listener to clear feedback when user types again ---
+            passwordInput.addEventListener('input', () => {
+                if (feedbackMessage.textContent !== '') {
+                    feedbackMessage.textContent = '';
+                    updateStrengthUI(0);
+                    resetCriteriaUI();
+                }
+            });
+
+            // --- Function to Update Strength Meter UI ---
+            const updateStrengthUI = (score) => {
+                const level = strengthLevels[score];
+                strengthText.textContent = level.text;
+                strengthText.className = `text-sm font-bold ${level.color.replace('bg-', 'text-').replace('-500', '-400').replace('-600', '-400')}`;
+                strengthProgress.style.width = level.width;
+                strengthProgress.className = `h-2.5 rounded-full ${level.color}`;
+            };
+            
+            // --- Function to Reset Criteria UI to initial state ---
+            const resetCriteriaUI = () => {
+                criteriaList.forEach(item => {
+                    const icon = item.querySelector('i');
+                    item.classList.add('text-gray-400');
+                    item.classList.remove('text-green-400');
+                    icon.setAttribute('data-lucide', 'circle');
+                    icon.classList.add('text-gray-500');
+                    icon.classList.remove('text-green-500');
+                });
+                lucide.createIcons(); // Re-render icons
+            };
+
+            // --- Event Listener for Toggling Password Visibility ---
+            toggleVisibilityBtn.addEventListener('click', () => {
+                const isPassword = passwordInput.type === 'password';
+                passwordInput.type = isPassword ? 'text' : 'password';
+                eyeIcon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+                lucide.createIcons(); // Re-render the eye icon
+            });
+
+            // --- Initialize Lucide Icons on load ---
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
