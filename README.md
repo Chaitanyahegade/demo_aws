@@ -1,2 +1,2 @@
 # demo_aws
-This is just a demo file to check the aws service
+This is simple website that check how strong the password is.
